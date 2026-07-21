@@ -55,6 +55,12 @@ coverage.xml
 # Jupyter
 .ipynb_checkpoints/
 
+# ---------- SQLite (persistent todo store) ----------
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # ---------- Secrets / env ----------
 .env
 .env.*

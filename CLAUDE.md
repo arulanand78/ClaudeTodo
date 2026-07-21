@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-ClaudeTodo is a two-part app: a React (Vite) SPA frontend and a Python (FastAPI) backend, coupled by a REST API at `/api`. There are **no user accounts and no database** — the backend persists todos in memory for the life of the process. `PRD.md` is the source of truth for intended behavior; the README is partially stale (it predates the `app/` package restructure).
+ClaudeTodo is a two-part app: a React (Vite) SPA frontend and a Python (FastAPI) backend, coupled by a REST API at `/api`. There are **no user accounts** — todos persist to a local SQLite file (`backend/todos.db`, via stdlib `sqlite3`) that survives process restarts. `PRD.md` is the source of truth for intended behavior; the README is partially stale (it predates the `app/` package restructure).
 
 ## Commands
 
@@ -33,13 +33,13 @@ Run both halves together for the dev experience: backend on `:8000`, frontend on
 
 **Backend (`backend/app/`, FastAPI)** is layered so the persistence layer can be swapped without touching routes:
 - `models.py` — Pydantic v2 schemas. `TodoCreate` enforces title `max_length=255` and rejects empty/whitespace via a `field_validator` that **trims** before validating.
-- `store.py` — `TodoStore` `Protocol` (the seam) + `InMemoryTodoStore` (the impl). A module-level `store` singleton is injected by the routes. Swapping to a DB means writing a new class that satisfies the protocol; routes stay untouched.
+- `store.py` — `TodoStore` `Protocol` (the seam) + two impls: `SqliteTodoStore` (the default; persists to a local SQLite file) and `InMemoryTodoStore` (throwaway). A module-level `store` singleton is injected by the routes. Swapping impls means writing a new class that satisfies the protocol; routes stay untouched. Selection is env-driven: `TODO_STORE=memory` for the in-memory store; `TODO_DB_PATH` relocates the SQLite file (default `backend/todos.db`).
 - `routers/todos.py` — the four REST routes, mounted under `/api` in `main.py`.
 - `main.py` — app, CORS (`http://localhost:5173` only), router mount, `/health`, and a `RequestValidationError` handler.
 
 Two non-obvious backend behaviors, both intentional:
 1. **Validation errors return `400`, not `422`.** FastAPI/Pydantic default to `422` with an array body. The custom `RequestValidationError` handler in `main.py` converts these to `400` with `{ "detail": "..." }` (a string) to match the PRD's error contract. If you add new request models, they inherit this automatically.
-2. **Newest-first ordering uses a monotonic sequence tiebreaker.** `list_all` sorts by `(created_at, creation_index)` descending. Windows' system-clock resolution (~15ms) makes back-to-back creates share a `created_at` timestamp, which would scramble insertion order without the tiebreaker.
+2. **Newest-first ordering uses a monotonic sequence tiebreaker.** `list_all` sorts by `(created_at, creation_index)` descending — in `InMemoryTodoStore` this is an explicit per-todo counter; in `SqliteTodoStore` it's SQLite's auto-incrementing `rowid` (`ORDER BY created_at DESC, rowid DESC`). Windows' system-clock resolution (~15ms) makes back-to-back creates share a `created_at` timestamp, which would scramble insertion order without the tiebreaker.
 
 **Frontend (`frontend/src/`, React 19 + Vite)** — no state library; `App.jsx` holds all state in hooks:
 - `api.js` — fetch client. Uses **relative** `/api/...` URLs (the Vite proxy handles dev; relative URLs also work for preview builds). Parses `{detail}` errors into messages.
