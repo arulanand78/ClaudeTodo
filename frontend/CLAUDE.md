@@ -14,8 +14,8 @@ There is no test runner and no linter configured.
 
 ## Layout (`src/`)
 
-- `src/api.js` — the fetch client. All calls use **relative** `/api/...` URLs.
-- `src/App.jsx` — the entire UI and all state. Header + remaining-count, input + Add, list (checkbox + delete), empty state, error banner.
+- `src/api.js` — the fetch client. All calls use **relative** `/api/...` URLs. Exports the fixed `CATEGORIES` list, `FILTER_ALL` filter sentinel, and `DEFAULT_CATEGORY`.
+- `src/App.jsx` — the entire UI and all state. Header + remaining-count, input + category `<select>` + Add, a category filter `<select>`, list (checkbox + delete), empty state, error banner.
 - `src/main.jsx` — mounts `<App/>` in `StrictMode`.
 - `vite.config.js` — the `/api` → `http://localhost:8000` proxy (the reason client code uses relative URLs).
 - `App.css` / `index.css` — styling; completed todos get strikethrough + muted via `todo-item--done`.

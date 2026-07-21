@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID, uuid4
 
-from .models import Todo, TodoCreate, TodoUpdate
+from .models import DEFAULT_CATEGORY, Todo, TodoCreate, TodoUpdate
 
 
 class TodoStore(Protocol):
@@ -51,6 +51,7 @@ class InMemoryTodoStore:
             id=uuid4(),
             title=payload.title,
             completed=False,
+            category=payload.category,
             created_at=datetime.now(timezone.utc),
         )
         self._order[todo.id] = len(self._order)  # monotonic creation index
@@ -96,10 +97,22 @@ class SqliteTodoStore:
                     id          TEXT PRIMARY KEY,
                     title       TEXT NOT NULL,
                     completed   INTEGER NOT NULL DEFAULT 0,
+                    category    TEXT NOT NULL DEFAULT 'General',
                     created_at  TEXT NOT NULL
                 )
                 """
             )
+            # Migrate pre-category databases: CREATE TABLE IF NOT EXISTS will
+            # not add a column to an existing table, so add it explicitly and
+            # backfill existing rows with the default category.
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(todos)").fetchall()
+            }
+            if "category" not in columns:
+                conn.execute(
+                    f"ALTER TABLE todos ADD COLUMN category TEXT NOT NULL DEFAULT '{DEFAULT_CATEGORY}'"
+                )
             conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -115,6 +128,7 @@ class SqliteTodoStore:
             id=UUID(row["id"]),
             title=row["title"],
             completed=bool(row["completed"]),
+            category=row["category"],
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
@@ -125,7 +139,7 @@ class SqliteTodoStore:
         # mirroring the in-memory store's creation_index tiebreaker.
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT id, title, completed, created_at, rowid "
+                "SELECT id, title, completed, category, created_at, rowid "
                 "FROM todos ORDER BY created_at DESC, rowid DESC"
             ).fetchall()
         return [self._row_to_todo(r) for r in rows]
@@ -135,13 +149,14 @@ class SqliteTodoStore:
             id=uuid4(),
             title=payload.title,
             completed=False,
+            category=payload.category,
             created_at=datetime.now(timezone.utc),
         )
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO todos (id, title, completed, created_at) "
-                "VALUES (?, ?, 0, ?)",
-                (str(todo.id), todo.title, todo.created_at.isoformat()),
+                "INSERT INTO todos (id, title, completed, category, created_at) "
+                "VALUES (?, ?, 0, ?, ?)",
+                (str(todo.id), todo.title, todo.category, todo.created_at.isoformat()),
             )
             conn.commit()
         return todo
@@ -155,7 +170,7 @@ class SqliteTodoStore:
             if cur.rowcount == 0:
                 return None  # route raises 404
             row = conn.execute(
-                "SELECT id, title, completed, created_at FROM todos WHERE id = ?",
+                "SELECT id, title, completed, category, created_at FROM todos WHERE id = ?",
                 (str(todo_id),),
             ).fetchone()
             conn.commit()

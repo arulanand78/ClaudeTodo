@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createTodo, deleteTodo, listTodos, updateTodo } from './api'
+import {
+  CATEGORIES,
+  DEFAULT_CATEGORY,
+  FILTER_ALL,
+  createTodo,
+  deleteTodo,
+  listTodos,
+  updateTodo,
+} from './api'
 import './App.css'
 
 function App() {
   const [todos, setTodos] = useState([])
   const [title, setTitle] = useState('')
+  const [category, setCategory] = useState(DEFAULT_CATEGORY)
+  const [filter, setFilter] = useState(FILTER_ALL)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -35,9 +45,10 @@ function App() {
     setError(null)
     try {
       // Optimistic: show the new todo first, then reconcile with server.
-      const created = await createTodo(trimmed)
+      const created = await createTodo(trimmed, category)
       setTodos((prev) => [created, ...prev])
       setTitle('')
+      setCategory(DEFAULT_CATEGORY)
       inputRef.current?.focus()
     } catch (err) {
       setError(err.message)
@@ -76,6 +87,11 @@ function App() {
   }
 
   const activeCount = todos.filter((t) => !t.completed).length
+  // Filtering is client-side: the full list is already loaded on mount, so the
+  // visible list is a derived view. Totals stay computed from the full list so
+  // the header summary doesn't jump when a filter is applied.
+  const visible =
+    filter === FILTER_ALL ? todos : todos.filter((t) => t.category === filter)
 
   return (
     <div className="app">
@@ -107,16 +123,51 @@ function App() {
           disabled={submitting}
           aria-label="Todo title"
         />
+        <select
+          className="app__select"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          disabled={submitting}
+          aria-label="Category"
+        >
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
         <button className="app__add" type="submit" disabled={submitting || !title.trim()}>
           Add
         </button>
       </form>
 
+      <div className="app__filter">
+        <label className="app__filter-label" htmlFor="filter">
+          Filter:
+        </label>
+        <select
+          id="filter"
+          className="app__select"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          aria-label="Filter by category"
+        >
+          <option value={FILTER_ALL}>All</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {todos.length === 0 ? (
         <p className="app__empty">No todos yet</p>
+      ) : visible.length === 0 ? (
+        <p className="app__empty">No todos in this category</p>
       ) : (
         <ul className="todo-list">
-          {todos.map((todo) => (
+          {visible.map((todo) => (
             <li key={todo.id} className={`todo-item${todo.completed ? ' todo-item--done' : ''}`}>
               <label className="todo-item__check">
                 <input

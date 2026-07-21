@@ -17,7 +17,7 @@ ClaudeTodo is a lightweight task-management application that lets users capture,
 
 **Non-Goals (v1)**
 - User accounts, authentication, or multi-tenant isolation.
-- Due dates, tags, priorities, sub-tasks, or nested lists.
+- Due dates, priorities, sub-tasks, or nested lists. (Categories — a fixed, single-value grouping — *are* in scope for v1; see §5.1.)
 - Offline mode, real-time collaboration, or sync across devices.
 - Notifications or reminders.
 
@@ -33,6 +33,8 @@ A single anonymous user interacting with their own local todo list. No login, no
 - As a user, I can unmark a completed todo, so I can correct mistakes.
 - As a user, I can delete a todo, so I can remove items I no longer need.
 - As a user, I can tell completed and active todos apart at a glance.
+- As a user, I can assign a category to a todo when I create it, so I can group related items together.
+- As a user, I can filter the list by category, so I can focus on one group of todos at a time.
 
 ## 5. Functional Requirements
 
@@ -41,16 +43,18 @@ Each todo has:
 - `id` — unique identifier (UUID).
 - `title` — non-empty string, max 255 chars, trimmed.
 - `completed` — boolean, defaults to `false`.
+- `category` — one of a fixed set (`General`, `Work`, `Personal`, `Shopping`, `Health`), set at creation (default `General`), immutable afterward.
 - `created_at` — ISO-8601 timestamp, server-set.
 
 ### 5.2 Core Actions
-- **Create** — Add a todo from a title. Reject empty/whitespace-only titles.
-- **Read** — List all todos. Ordering: newest first by `created_at`.
-- **Update** — Toggle `completed` on a todo by id.
+- **Create** — Add a todo from a title and an optional category (defaults to `General`). Reject empty/whitespace-only titles and unknown category values.
+- **Read** — List all todos. Ordering: newest first by `created_at`. (Category filtering is performed client-side over the loaded list; the API always returns all todos.)
+- **Update** — Toggle `completed` on a todo by id. Category cannot be changed after creation.
 - **Delete** — Remove a todo by id. Idempotent: deleting a missing id returns success (204).
 
 ### 5.3 Validation & Errors
 - Title > 255 chars → `400` with a clear message.
+- Category not in the fixed set → `400` with a clear message.
 - Unknown id on toggle → `404`.
 - Server returns JSON errors of the form `{ "detail": "..." }`.
 
@@ -60,7 +64,7 @@ Base URL: `/api`. JSON in/out.
 
 | Method | Path | Body | Success | Purpose |
 |---|---|---|---|---|
-| `POST` | `/todos` | `{ "title": "..." }` | `201` `{ id, title, completed, created_at }` | Create |
+| `POST` | `/todos` | `{ "title": "...", "category": "..." }` (`category` optional, default `General`) | `201` `{ id, title, completed, category, created_at }` | Create |
 | `GET` | `/todos` | — | `200` `[ { ... } ]` | List all |
 | `PATCH` | `/todos/{id}` | `{ "completed": bool }` | `200` `{ ... }` | Toggle complete |
 | `DELETE` | `/todos/{id}` | — | `204` | Delete |
@@ -70,10 +74,10 @@ CORS is enabled for the Vite dev origin.
 ## 7. Frontend (React + Vite)
 
 - **Stack:** React, Vite, fetch-based API client (no external state library).
-- **Views:** Single page — header, an input + "Add" button, and the list.
-- **List item:** title, a checkbox bound to `completed`, and a delete button. Completed todos show strikethrough + muted styling.
-- **State:** Todos held in component state; mutating calls optimistically update then reconcile with server response, or refetch on error.
-- **Empty state:** Friendly "No todos yet" message.
+- **Views:** Single page — header, an input + category `<select>` + "Add" button, a category filter `<select>` (All + the fixed categories), and the list.
+- **List item:** title, a checkbox bound to `completed`, and a delete button. Completed todos show strikethrough + muted styling. (Category is not shown per-item; it is visible via the filter.)
+- **State:** Todos held in component state; mutating calls optimistically update then reconcile with server response, or refetch on error. Category filtering is derived client-side over the loaded list; the header counts reflect all todos, not the filtered view.
+- **Empty state:** Friendly "No todos yet" message when there are no todos, and "No todos in this category" when a filter yields no results.
 - **Responsiveness:** Works on mobile and desktop widths.
 
 ## 8. Backend (Python FastAPI)
@@ -95,8 +99,8 @@ CORS is enabled for the Vite dev origin.
 
 - Persistence to a database (SQLite/Postgres).
 - Auth and per-user lists.
-- Editing titles, due dates, priorities, tags.
-- Search, filter (all/active/completed), bulk actions.
+- Editing titles, due dates, priorities.
+- Search, completion-based filters (all/active/completed), bulk actions. (Category filtering *is* in scope; editing/re-categorizing after creation is not — category is immutable.)
 - Deploy/hosting pipeline.
 
 ## 11. Acceptance Criteria

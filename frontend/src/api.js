@@ -4,6 +4,14 @@
 
 const BASE = '/api'
 
+// The fixed category set. Kept in sync with the backend's CATEGORIES
+// (backend/app/models.py). Category is immutable after creation, so the
+// picker only ever sends one of these. "All" is a filter-only sentinel, never
+// sent to the server.
+export const CATEGORIES = ['General', 'Work', 'Personal', 'Shopping', 'Health']
+export const FILTER_ALL = 'All'
+export const DEFAULT_CATEGORY = CATEGORIES[0]
+
 async function parseError(res) {
   // Errors are JSON of the form { "detail": "..." } (PRD §5.3).
   try {
@@ -20,17 +28,18 @@ export async function listTodos() {
   return res.json()
 }
 
-export async function createTodo(title) {
+export async function createTodo(title, category) {
   const res = await fetch(`${BASE}/todos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, category }),
   })
   if (!res.ok) throw new Error(await parseError(res))
   return res.json()
 }
 
 export async function updateTodo(id, completed) {
+  // Category is immutable after creation; PATCH only toggles `completed`.
   const res = await fetch(`${BASE}/todos/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
