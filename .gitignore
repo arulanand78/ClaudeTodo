@@ -29,6 +29,7 @@ __pycache__/
 venv/
 env/
 ENV/
+.playwright-mcp/
 
 # packaging / build artifacts
 build/
@@ -72,6 +73,9 @@ Thumbs.db
 desktop.ini
 $RECYCLE.BIN/
 ehthumbs.db
+
+# ---------- Claude Code (local) ----------
+.claude/settings.local.json
 
 # ---------- Editors / IDEs ----------
 .vscode/
