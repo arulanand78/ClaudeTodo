@@ -16,7 +16,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: ""   # placeholder — fill in after backend is deployed (Step 5)
+        value: "arulanand78-claudetodo-backend.onrender.com"
     routes:
       - type: rewrite
         source: /*
