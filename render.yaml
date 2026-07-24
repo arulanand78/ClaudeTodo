@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: arulanand78-claudetodo-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+
+  - type: web
+    name: arulanand78-claudetodo-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: ""   # placeholder — fill in after backend is deployed (Step 5)
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

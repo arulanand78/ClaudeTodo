@@ -28,10 +28,11 @@ async def validation_exception_handler(
         content={"detail": "; ".join(messages) or "invalid input"},
     )
 
-# CORS for the Vite dev origin (PRD §6).
+# CORS: allow the Vite dev origin locally and any origin in production
+# (Render frontend is a separate static-site domain). No auth/cookies in v1.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
